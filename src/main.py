@@ -18,6 +18,7 @@ NOMES_CURTOS = ["Temperatura", "Comunicação", "Bateria", "Oxigênio", "Estabil
 
 # 1. FUNÇÃO: Obter Dados da Missão
 def obter_dados_missao():
+    """Retorna a matriz com os dados brutos de telemetria da missão."""
     return [
         [24, 92, 88, 96, 90],
         [27, 80, 72, 94, 85],
@@ -30,7 +31,8 @@ def obter_dados_missao():
 # 2. FUNÇÃO: Classificar Parâmetro Individual
 def classificar_parametro(indice, valor):
     """
-    Retorna uma tupla: (Status, Pontuação, Mensagem de Status, Recomendação)
+    Analisa um valor de acordo com a área (índice) e retorna:
+    (Status, Pontuação de Risco, Mensagem de Status, Recomendação)
     """
     # 0: Temperatura
     if indice == 0:
@@ -65,11 +67,31 @@ def classificar_parametro(indice, valor):
 
 # 3. FUNÇÃO: Formatação Visual de Medidas
 def formatar_medida(indice, valor):
+    """Adiciona a unidade de medida correta (°C ou %) dependendo do dado analisado."""
     if indice == 0:
         return f"{valor} °C"
     return f"{valor}%"
 
-# 4. FUNÇÃO PRINCIPAL E DE RELATÓRIOS
+# 4. FUNÇÃO: Analisar Tendência Geral da Missão
+def analisar_tendencia(pontuacoes):
+    """
+    Recebe o histórico de risco da missão e determina matematicamente
+    se a situação GLOBAL da nave está piorando, melhorando ou estável.
+    """
+    if not pontuacoes or len(pontuacoes) < 2:
+        return "Dados insuficientes para calcular tendência."
+        
+    risco_inicial = pontuacoes[0]
+    risco_final = pontuacoes[-1]
+    
+    if risco_final > risco_inicial:
+        return "A missão apresentou tendência de piora em relação ao início."
+    elif risco_final < risco_inicial:
+        return "A missão apresentou tendência de melhora em relação ao início."
+    else:
+        return "A missão manteve-se estável em relação ao início."
+
+# 5. FUNÇÃO PRINCIPAL: Motor da Aplicação e Relatório Final
 def main():
     dados = obter_dados_missao()
     total_ciclos = len(dados)
@@ -78,6 +100,7 @@ def main():
     classificacoes_por_ciclo = []
     acumulado_por_area = [0, 0, 0, 0, 0]
     
+    # Cabeçalho Inicial
     print("=" * 60)
     print("MISSION CONTROL AI")
     print("=" * 60)
@@ -113,8 +136,6 @@ def main():
         if pontuacao_ciclo >= 6 or teve_critico:
             classificacao = "MISSÃO CRÍTICA"
         elif pontuacao_ciclo >= 3 or (pontuacao_ciclo >= 1 and not teve_critico):
-            # Para seguir exatamente seu exemplo: se tiver atenção sem crítico e for baixa pontuação
-            # Ajustamos a regra: <= 2 pontos sem crítico é estável
             if pontuacao_ciclo <= 2:
                 classificacao = "MISSÃO ESTÁVEL"
             else:
@@ -122,6 +143,20 @@ def main():
         else:
             classificacao = "MISSÃO ESTÁVEL"
             
+        # --- NOVA LÓGICA: Comparação com o ciclo anterior ---
+        if c_idx == 0:
+            comparacao_ciclo = "Referência inicial (Não há ciclo anterior)"
+        else:
+            pontuacao_anterior = pontuacoes_por_ciclo[-1] # Puxa o último risco salvo
+            if pontuacao_ciclo > pontuacao_anterior:
+                comparacao_ciclo = "PIOR (Risco aumentou)"
+            elif pontuacao_ciclo < pontuacao_anterior:
+                comparacao_ciclo = "MELHOR (Risco diminuiu)"
+            else:
+                comparacao_ciclo = "IGUAL (Risco se manteve)"
+        # ----------------------------------------------------
+
+        # Guarda a pontuação atual na lista para o próximo ciclo poder comparar
         pontuacoes_por_ciclo.append(pontuacao_ciclo)
         classificacoes_por_ciclo.append(classificacao)
         
@@ -133,7 +168,9 @@ def main():
             
         print(f"Pontuação de risco do ciclo: {pontuacao_ciclo}")
         print(f"Classificação do ciclo: {classificacao}")
+        print(f"Comparação com o ciclo anterior: {comparacao_ciclo}") # <-- EXIBE NA TELA
         print(f"Recomendação: {texto_recomendacao}")
+        print() # Linha em branco para separar melhor os ciclos
         
     
     # ==========================================
@@ -149,13 +186,8 @@ def main():
     risco_medio = sum(pontuacoes_por_ciclo) / total_ciclos
     qtd_criticos = classificacoes_por_ciclo.count("MISSÃO CRÍTICA")
     
-    # Tendência
-    if pontuacoes_por_ciclo[-1] > pontuacoes_por_ciclo[0]:
-        tendencia = "A missão apresentou tendência de piora."
-    elif pontuacoes_por_ciclo[-1] < pontuacoes_por_ciclo[0]:
-        tendencia = "A missão apresentou tendência de melhora."
-    else:
-        tendencia = "A missão manteve-se estável."
+    # Chamada da nossa 4ª Função: Analisar Tendência Geral
+    tendencia_global = analisar_tendencia(pontuacoes_por_ciclo)
         
     # Área mais afetada
     max_acumulado = max(acumulado_por_area)
@@ -184,11 +216,14 @@ def main():
     print(f"Maior pontuação de risco: {maior_pontuacao}")
     print(f"Risco médio da missão: {risco_medio:.2f}")
     print(f"Quantidade de ciclos críticos: {qtd_criticos}")
-    print("Tendência da missão:")
-    print(tendencia)
+    print("Tendência global da missão:")
+    print(tendencia_global)
+    print()
     print("Pontuação acumulada por área:")
+    print()
     for i in range(5):
         print(f"{AREAS_MONITORADAS[i]}: {acumulado_por_area[i]} pontos")
+    print()
     print("Área mais afetada:")
     print(nome_area_afetada)
     print("Classificação final da missão:")
